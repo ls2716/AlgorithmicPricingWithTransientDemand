@@ -12,3 +12,6 @@ __pycache__/
 
 # Ignore text files
 *.txt
+
+*.npy
+*.json

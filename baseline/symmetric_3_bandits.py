@@ -51,8 +51,8 @@ logger.info(f'Half width: {action_set[0]} - {action_set[half_width]}')
 np.random.seed(0)
 
 # Run the game
-T = 3000
-initial_T = 2000
+T = 2000
+initial_T = 1000
 rewards, actions, randomised = ut.single_game(delayed_env, bandits, T)
 mean_rewards = np.mean(rewards[:, initial_T:], axis=1)
 mean_actions = np.mean(actions[:, initial_T:], axis=1)
@@ -69,7 +69,9 @@ logger.info(
 # Plot the rewards
 ut.plot_reward_and_action(rewards, actions, None,
                           image_folder, f'bandits_{delay}_delayed_{T}.png',
-                          nash_payoffs=nash_payoffs, pareto_payoffs=pareto_payoffs)
+                          nash_payoffs=nash_payoffs, pareto_payoffs=pareto_payoffs,
+                          nash_price=nash_prices[0], cost=Cs[0],
+                          show_plot=False)
 
 
 def round_4(x):

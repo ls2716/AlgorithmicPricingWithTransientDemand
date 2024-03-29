@@ -4,6 +4,10 @@ import logging
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import json
+
+# Set font size for matplotlib
+plt.rcParams.update({'font.size': 13})
 
 
 def get_logger(name, level=logging.INFO):
@@ -99,8 +103,8 @@ def plot_action_history(action_history, bandit_names, folder, filename, show_plo
 
 
 def plot_reward_and_action(reward_history, action_history, bandit_names, folder, filename, show_plot=False,
-                           nash_payoffs=None, pareto_payoffs=None):
-    fig, axs = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+                           nash_payoffs=None, pareto_payoffs=None, nash_price=None, cost=1.):
+    fig, axs = plt.subplots(2, 1, figsize=(11, 7), sharex=True)
     if bandit_names is None:
         bandit_names = ['Bandit '+str(i+1)
                         for i in range(reward_history.shape[0])]
@@ -120,15 +124,17 @@ def plot_reward_and_action(reward_history, action_history, bandit_names, folder,
     axs[0].legend()
     axs[1].set_xlabel('Time step')
     axs[1].set_ylabel('Price')
-    # Add second axis for margins
-    secondary_axis = axs[1].twinx()
-    ylims = np.array(axs[1].get_ylim()).reshape(-1, 1)
-    new_ylims = ylims - 1.
-    secondary_axis.set_ylabel('Margin')
-    secondary_axis.set_ylim(new_ylims)
+    if nash_price is not None and cost is not None:
+        # Add second axis for margins
+        secondary_axis = axs[1].twinx()
+        ylims = np.array(axs[1].get_ylim()).reshape(-1, 1)
+        new_ylims = (ylims - nash_price) / (nash_price - cost) * 100
+        secondary_axis.set_ylabel('% margin increase wrt Nash')
+        secondary_axis.set_ylim(new_ylims)
     axs[1].legend()
     axs[0].grid()
     axs[1].grid()
+    plt.tight_layout()
     plt.savefig(os.path.join(folder, filename))
     if show_plot:
         plt.show()
@@ -234,3 +240,51 @@ def plot_reward_and_action_randomised(reward_history, action_history, randomised
     if show_plot:
         plt.show()
     plt.close()
+
+
+def reduce_results(all_rewards, all_actions, initial_T, Nash_reward, Nash_action, Pareto_reward, cost, foldername, filename):
+    # Normalise the rewards
+    norm_rewards = (all_rewards - Nash_reward)/(Pareto_reward - Nash_reward)
+    # Calculate the margins
+    margins = all_actions - cost
+    # Calculate the percent increase wrt Nash
+    percent_increase = (all_actions - Nash_action) / (Nash_action-cost) * 100
+    # Calculate the mean rewards and actions
+    mean_rewards = np.mean(all_rewards[:, :, initial_T:])
+    mean_actions = np.mean(all_actions[:, :, initial_T:])
+    mean_norm_rewards = np.mean(norm_rewards[:, :, initial_T:])
+    mean_margins = np.mean(margins[:, :, initial_T:])
+    mean_percent_increase = np.mean(percent_increase[:, :, initial_T:])
+    # Calculate the standard deviations
+    std_rewards = np.std(all_rewards[:, :, initial_T:])
+    std_actions = np.std(all_actions[:, :, initial_T:])
+    std_norm_rewards = np.std(norm_rewards[:, :, initial_T:])
+    std_margins = np.std(margins[:, :, initial_T:])
+    std_percent_increase = np.std(percent_increase[:, :, initial_T:])
+    std_percent_increase_sim = np.std(
+        np.mean(percent_increase[:, :, initial_T:], axis=(1, 2)))
+    # Save the results
+    with open(os.path.join(foldername, filename), 'w+') as f:
+        f.write(f'{Nash_reward:.4f} Nash reward\n')
+        f.write(f'{Nash_action:.4f} Nash action\n')
+        f.write(f'{Pareto_reward:.4f} Pareto reward\n')
+        f.write(f'{mean_rewards:.4f} mean rewards with std = {std_rewards:.4f}\n')
+        f.write(f'{mean_actions:.4f} mean actions with std = {std_actions:.4f}\n')
+        f.write(
+            f'{mean_norm_rewards:.4f} mean normalised rewards with std = {std_norm_rewards:.4f}\n')
+        f.write(f'{mean_margins:.4f} mean margins with std = {std_margins:.4f}\n')
+        f.write(
+            f'{mean_percent_increase:.4f} mean percent increase with std = {std_percent_increase:.4f}\n')
+        f.write(
+            f'std of mean percent increase across simulations = {std_percent_increase_sim:.4f}\n')
+        # Write the normalised reward and the std
+        f.write(f'{mean_norm_rewards:.3f} [{std_norm_rewards:.3f}]\n')
+        # Write the percent increase and the std
+        f.write(
+            f'{mean_percent_increase:.1f} [{std_percent_increase:.1f}]\%\n')
+
+
+def save_json(folder, filename, data):
+    """Save a dictionary to a json file"""
+    with open(os.path.join(folder, filename), 'w') as f:
+        f.write(json.dumps(data, indent=4))

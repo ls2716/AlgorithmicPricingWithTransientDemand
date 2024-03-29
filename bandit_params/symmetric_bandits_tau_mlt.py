@@ -11,9 +11,9 @@ import utils as ut
 logger = ut.get_logger(__name__)
 
 # Create folder name
-image_folder = '_images/noise'
-results_folder = '_results/noise'
-root_data_folder = '_data/noise'
+image_folder = '_images/bandit_params'
+results_folder = '_results/bandit_params'
+root_data_folder = '_data/bandit_params'
 ut.create_folder(image_folder)
 ut.create_folder(results_folder)
 ut.create_folder(root_data_folder)
@@ -43,7 +43,7 @@ logger.info(f"Nash rewards: {rewards}")
 action_set = np.linspace(1, 4, 3001, endpoint=True)
 half_width = 5
 epsilon = 0.25
-tau = 50
+tau = 150
 bandits = [LocalBandit(epsilon, action_set, tau, half_width)
            for _ in range(N)]
 
@@ -62,13 +62,11 @@ no_sim = 10
 # Run the game
 T = 20000
 initial_T = 5000
-noise_level = 0.003
 all_rewards = np.zeros((no_sim, N, T))
 all_actions = np.zeros((no_sim, N, T))
 for sim in range(no_sim):
     logger.info(f'Simulation {sim+1}')
-    rewards, actions, randomised = ut.single_game(
-        delayed_env, bandits, T, noise=noise_level)
+    rewards, actions, randomised = ut.single_game(delayed_env, bandits, T)
     mean_rewards = np.mean(rewards[:, initial_T:], axis=1)
     mean_actions = np.mean(actions[:, initial_T:], axis=1)
     logger.info(
@@ -85,14 +83,14 @@ logger.info(
 
 # Plot the last rewards
 ut.plot_reward_and_action(rewards, actions, None,
-                          image_folder, f'bandits_{delay}_delayed_{T}_noise_{noise_level}_mlt_{no_sim}.png',
+                          image_folder, f'bandits_{delay}_delayed_{T}_tau_{tau}_mlt_{no_sim}.png',
                           nash_payoffs=nash_payoffs, pareto_payoffs=pareto_payoffs,
                           nash_price=nash_prices[0], cost=Cs[0])
 
 
 # Save arrays to a file
 data_folder = os.path.join(
-    root_data_folder, f"data_bandits_{delay}_delayed_{T}_noise_{noise_level}_mlt_{no_sim}")
+    root_data_folder, f"data_bandits_{delay}_delayed_{T}_tau_{tau}_mlt_{no_sim}")
 ut.create_folder(data_folder)
 np.save(os.path.join(data_folder,
         f"bandits_{delay}_delayed_{T}_rewards.npy"), all_rewards)
@@ -121,4 +119,4 @@ ut.save_json(data_folder,  f"bandits_{delay}_delayed_{T}.json", {
 # Save results
 ut.reduce_results(all_rewards, all_actions, initial_T,
                   nash_payoffs, nash_prices[0], pareto_payoffs, Cs[0],
-                  results_folder, f"bandits_{delay}_delayed_{T}_noise_{noise_level}_mlt_{no_sim}.txt")
+                  results_folder, f"bandits_{delay}_delayed_{T}_tau_{tau}_mlt_{no_sim}.txt")

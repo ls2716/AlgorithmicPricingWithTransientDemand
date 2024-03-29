@@ -3,7 +3,7 @@
 import numpy as np
 import logging
 import utils as ut
-
+from collections import deque
 
 # Define a logger
 logger = ut.get_logger(__name__)
@@ -67,7 +67,7 @@ class LocalBandit():
         # Return action and action index
         return self.action_set[action_index], action_index, self.action_set[max_index]
 
-    def update(self, action_index, reward):
+    def update_old(self, action_index, reward):
         """Update the action-value function."""
         # Update the rewards
         if self.rewards is None:
@@ -84,14 +84,45 @@ class LocalBandit():
         self.m = np.sum(self.rewards, axis=0) / \
             np.maximum(np.sum(self.rewards != 0, axis=0), 1)
 
+    def update(self, action_index, reward):
+        """Update the action-value function."""
+        # Update the rewards
+        if self.rewards is None:
+            # If the rewards are not initialised, initialise them
+            self.rewards = deque()
+            self.indices = deque()
+            self.sums = np.zeros(len(self.action_set))
+            self.counters = np.zeros(len(self.action_set))
+        step_rewards = np.zeros(len(self.action_set)).reshape(-1)
+        step_rewards[action_index] = reward
+        self.rewards.append(step_rewards)
+        self.indices.append(action_index)
+        self.sums[action_index] += reward
+        self.counters[action_index] += 1
+        self.m[action_index] = self.sums[action_index] / \
+            self.counters[action_index]
+        # Remove the oldest reward
+        if len(self.rewards) > self.tau:
+            oldest_rewards = self.rewards.popleft()
+            oldest_index = self.indices.popleft()
+            self.sums[oldest_index] -= oldest_rewards[oldest_index]
+            self.counters[oldest_index] -= 1
+            if self.counters[oldest_index] == 0:
+                self.m[oldest_index] = 0.
+            else:
+                self.m[oldest_index] = self.sums[oldest_index] / \
+                    self.counters[oldest_index]
+
 
 if __name__ == "__main__":
 
     # Initialise a local bandit
     bandit = LocalBandit(0.1, [0, 0.1, 0.2, 0.3, 0.4, 0.5], 3, 1)
+    # Set seed
+    np.random.seed(0)
     for i in range(5):
         # Get the action
-        action, action_index = bandit.get_action()
+        action, action_index, _ = bandit.get_action()
         # Update the bandit
         bandit.update(action_index, -i-1)
         print(bandit.m)
